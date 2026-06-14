@@ -1,0 +1,10 @@
+{
+	"id": "knowledge",
+	"name": "Knowledge Analytics",
+	"version": "1.0.0",
+	"minAppVersion": "1.1.8",
+	"description": "Exposes vault knowledge analytics via local HTTP server.",
+	"author": "Antigravity",
+	"authorUrl": "",
+	"isDesktopOnly": true
+}
