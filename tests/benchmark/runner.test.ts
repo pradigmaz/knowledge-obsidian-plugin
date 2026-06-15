@@ -6,6 +6,12 @@ afterEach(() => {
 });
 
 describe('runQueryBenchmark', () => {
+  it('does not pass an empty benchmark set', async () => {
+    const report = await runQueryBenchmark({} as never, []);
+
+    expect(report).toMatchObject({ pass: false, topKHitRate: 0, cases: [] });
+  });
+
   it('reports missing expected paths', async () => {
     (globalThis as any).window = {
       omnisearch: {

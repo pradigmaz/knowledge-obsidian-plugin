@@ -31,8 +31,8 @@ describe('runJanitorScan', () => {
 
 		const result = await runJanitorScan(app, {});
 
-		expect(result.result.scannedCount).toBe(4);
-		expect(result.result.unstructuredNotes).toEqual(['MissingType.md']);
+		expect(result.scannedCount).toBe(4);
+		expect(result.unstructuredNotes).toEqual(['MissingType.md']);
 	});
 
 	it('applies folder filtering before checking notes', async () => {
@@ -44,7 +44,7 @@ describe('runJanitorScan', () => {
 
 		const result = await runJanitorScan(app, { folder: 'Project' });
 
-		expect(result.result.scannedCount).toBe(1);
-		expect(result.result.unstructuredNotes).toEqual([]);
+		expect(result.scannedCount).toBe(1);
+		expect(result.unstructuredNotes).toEqual([]);
 	});
 });

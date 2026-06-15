@@ -1,6 +1,6 @@
 import { App } from 'obsidian';
 import { graphStats } from '../core/graph';
-import { VaultHealthReport, NoteHotspot } from '../core/types';
+import { VaultHealthReport, NoteHotspot, Severity } from '../core/types';
 import { checkRules, RuleContext } from './rules';
 import { getSignals } from '../memory/signals';
 import { extractTags } from '../utils/tags';
@@ -27,10 +27,12 @@ export async function buildHealthReport(app: App): Promise<VaultHealthReport> {
 	const hotspots: NoteHotspot[] = [];
 	const groupedByFolder: Record<string, NoteHotspot[]> = {};
 	const groupedByTag: Record<string, NoteHotspot[]> = {};
+	const severityCounts: Record<Severity, number> = { info: 0, warn: 0, high: 0 };
 
 	for (const file of files) {
 		const cache = app.metadataCache.getFileCache(file);
 		const frontmatter = cache?.frontmatter || null;
+		const content = await app.vault.cachedRead(file);
 		
 		const allTags = extractTags(cache, frontmatter);
 
@@ -53,6 +55,7 @@ export async function buildHealthReport(app: App): Promise<VaultHealthReport> {
 			path: file.path,
 			frontmatter,
 			tags: allTags,
+			content,
 			contentLength: file.stat.size,
 			linksOut,
 			backlinks,
@@ -75,6 +78,7 @@ export async function buildHealthReport(app: App): Promise<VaultHealthReport> {
 			// Calculate score
 			let score = 0;
 			for (const v of violations) {
+				severityCounts[v.severity]++;
 				if (v.severity === 'high') score += 10;
 				else if (v.severity === 'warn') score += 5;
 				else score += 1;
@@ -120,6 +124,7 @@ export async function buildHealthReport(app: App): Promise<VaultHealthReport> {
 		status: 'ok',
 		hotspots,
 		groupedByFolder,
-		groupedByTag
+		groupedByTag,
+		severityCounts
 	};
 }

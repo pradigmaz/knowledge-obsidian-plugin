@@ -4,7 +4,7 @@ import { search } from '../search/engine';
 
 export async function runQueryBenchmark(app: App, cases: BenchmarkCase[]): Promise<BenchmarkReport> {
 	if (!cases || cases.length === 0) {
-		return { pass: true, topKHitRate: 100, cases: [] };
+		return { pass: false, topKHitRate: 0, cases: [] };
 	}
 
 	const results: BenchmarkCaseResult[] = [];

@@ -58,6 +58,11 @@ export function buildBrief(app: App): WorkspaceBriefData {
 		.slice(0, 10)
 		.map(([folder, count]) => ({ folder, count }));
 
+	const backlinkHubs = [...Object.entries(graph.backlinks)]
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 10)
+		.map(([path, backlinks]) => ({ path, backlinks }));
+
 	const topTags = [...tagCounts.entries()]
 		.sort((a, b) => b[1] - a[1])
 		.slice(0, 10)
@@ -101,6 +106,7 @@ export function buildBrief(app: App): WorkspaceBriefData {
 		linksCount: totalValues(graph.links),
 		unresolvedLinksCount: unresolvedLinksCount(app),
 		isolatedNotes,
+		backlinkHubs,
 		topFolders,
 		topTags,
 		commonProperties,

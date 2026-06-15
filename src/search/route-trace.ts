@@ -15,7 +15,7 @@ function resolveKey(adjacency: Record<string, string[]>, query: string): string 
 	return exact || query;
 }
 
-export async function routeTrace(app: App, payload: RouteTraceRequest): Promise<{ status: string; result: RouteTraceResult }> {
+export async function routeTrace(app: App, payload: RouteTraceRequest): Promise<RouteTraceResult> {
 	const source = payload.source.trim();
 	const target = payload.target.trim();
 
@@ -28,10 +28,26 @@ export async function routeTrace(app: App, payload: RouteTraceRequest): Promise<
 	const sourceKey = resolveKey(adjacency, source);
 	const targetKey = resolveKey(adjacency, target);
 
-	if (!adjacency[sourceKey] || !adjacency[targetKey]) {
+	if (!adjacency[sourceKey]) {
+		return { 
+			seed: { seed: sourceKey, seed_kind: 'note' }, best_route: { segments: [], total_hops: 0, total_weight: 0, collapsed_hops: 0, confidence: 1 }, alternate_routes: [], unresolved_gaps: [], capability_status: 'ok', unsupported_sources: [], confidence: 1,
+			source: sourceKey, target: targetKey, path: [], distance: 0, found: false, reason: 'source_not_found' 
+		};
+	}
+
+	if (!adjacency[targetKey]) {
+		return { 
+			seed: { seed: sourceKey, seed_kind: 'note' }, best_route: { segments: [], total_hops: 0, total_weight: 0, collapsed_hops: 0, confidence: 1 }, alternate_routes: [], unresolved_gaps: [], capability_status: 'ok', unsupported_sources: [], confidence: 1,
+			source: sourceKey, target: targetKey, path: [], distance: 0, found: false, reason: 'target_not_found' 
+		};
+	}
+
+	if (sourceKey === targetKey) {
 		return {
-			status: 'ok',
-			result: { source: sourceKey, target: targetKey, path: [], distance: 0 }
+			seed: { seed: sourceKey, seed_kind: 'note' },
+			best_route: { segments: [], total_hops: 0, total_weight: 0, collapsed_hops: 0, confidence: 1 },
+			alternate_routes: [], unresolved_gaps: [], capability_status: 'ok', unsupported_sources: [], confidence: 1,
+			source: sourceKey, target: targetKey, path: [sourceKey], distance: 0, found: true
 		};
 	}
 
@@ -55,9 +71,9 @@ export async function routeTrace(app: App, payload: RouteTraceRequest): Promise<
 				path.unshift(curr);
 				curr = parentMap.get(curr);
 			}
-			return {
-				status: 'ok',
-				result: { source: sourceKey, target: targetKey, path, distance: path.length - 1 }
+			return { 
+				seed: { seed: sourceKey, seed_kind: 'note' }, best_route: { segments: path.map(p => ({ kind: 'link', path: p, language: 'md', evidence: '', relation_kind: 'reference', source_kind: 'vault', score: 1 })), total_hops: path.length - 1, total_weight: 1, collapsed_hops: 0, confidence: 1 }, alternate_routes: [], unresolved_gaps: [], capability_status: 'ok', unsupported_sources: [], confidence: 1,
+				source: sourceKey, target: targetKey, path, distance: path.length - 1, found: true 
 			};
 		}
 
@@ -83,8 +99,8 @@ export async function routeTrace(app: App, payload: RouteTraceRequest): Promise<
 		}
 	}
 
-	return {
-		status: 'ok',
-		result: { source: sourceKey, target: targetKey, path: [], distance: 0 }
+	return { 
+		seed: { seed: sourceKey, seed_kind: 'note' }, best_route: { segments: [], total_hops: 0, total_weight: 0, collapsed_hops: 0, confidence: 1 }, alternate_routes: [], unresolved_gaps: [], capability_status: 'ok', unsupported_sources: [], confidence: 1,
+		source: sourceKey, target: targetKey, path: [], distance: 0, found: false, reason: 'no_path' 
 	};
 }

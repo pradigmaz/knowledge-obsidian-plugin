@@ -44,9 +44,18 @@ export class KnowledgeServer {
 	}
 
 	async handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
+		const origin = this.headerValue(req.headers.origin);
 		res.setHeader('Content-Type', 'application/json');
-		res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1');
+		res.setHeader('Access-Control-Allow-Origin', this.allowedOrigin(origin));
+		res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+		res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Schema-Version, X-Gatekeeper-Strict');
 		res.setHeader('X-Schema-Version', SCHEMA_VERSION);
+
+		if (req.method === 'OPTIONS') {
+			res.statusCode = 204;
+			res.end();
+			return;
+		}
 
 		const headerSchema = req.headers['x-schema-version'];
 		const clientSchema = Array.isArray(headerSchema) ? headerSchema[0] : headerSchema;
@@ -54,7 +63,7 @@ export class KnowledgeServer {
 			this.sendJson(res, { error: 'Missing X-Schema-Version header' }, 400);
 			return;
 		}
-		if (clientSchema !== SCHEMA_VERSION && !clientSchema.startsWith('0.')) {
+		if (clientSchema !== SCHEMA_VERSION) {
 			this.sendJson(res, { error: `Schema version mismatch. Expected ${SCHEMA_VERSION}, got ${clientSchema}` }, 400);
 			return;
 		}
@@ -65,8 +74,7 @@ export class KnowledgeServer {
 				this.sendJson(res, { error: 'Content-Type must be application/json' }, 415);
 				return;
 			}
-			const origin = this.headerValue(req.headers.origin);
-			if (origin && !origin.startsWith('app://') && origin !== 'http://127.0.0.1' && origin !== 'http://localhost') {
+			if (origin && this.allowedOrigin(origin) !== origin) {
 				this.sendJson(res, { error: 'Origin not allowed' }, 403);
 				return;
 			}
@@ -108,8 +116,9 @@ export class KnowledgeServer {
 				const payload = await this.readJson<SignalMemoryMarkRequest>(req);
 				this.sendJson(res, await markSignal(this.app, payload));
 			} else if (req.method === 'POST' && req.url === '/api/benchmark') {
-				let payload = await this.readJson<BenchmarkCase[]>(req).catch(() => null);
-				if (!payload || payload.length === 0) {
+				const rawPayload = await this.readJson<{ cases?: BenchmarkCase[] }>(req);
+				let payload = rawPayload?.cases || [];
+				if (payload.length === 0) {
 					const file = this.app.vault.getAbstractFileByPath(`${this.app.vault.configDir}/knowledge-benchmarks.json`);
 					if (file instanceof TFile) {
 						const content = await this.app.vault.read(file);
@@ -171,8 +180,14 @@ export class KnowledgeServer {
 				name: 'Knowledge Search',
 				version: SCHEMA_VERSION,
 				status: omni ? 'ready' : 'degraded',
-				endpoints: ['/api/search', '/api/benchmark'],
-				tools: ['obsidian_knowledge_smart_search', 'obsidian_knowledge_query_benchmark'],
+				endpoints: ['/api/search', '/api/bootstrap', '/api/route-trace', '/api/concept-cluster', '/api/benchmark'],
+				tools: [
+					'obsidian_knowledge_smart_search',
+					'obsidian_knowledge_agent_bootstrap',
+					'obsidian_knowledge_route_trace',
+					'obsidian_knowledge_concept_cluster',
+					'obsidian_knowledge_query_benchmark'
+				],
 				dependencies: ['knowledge-core'],
 				...(omni ? {} : { degradedReasons: ['Omnisearch plugin is not available'] })
 			},
@@ -181,8 +196,8 @@ export class KnowledgeServer {
 				name: 'Knowledge Health',
 				version: SCHEMA_VERSION,
 				status: 'ready',
-				endpoints: ['/api/health'],
-				tools: ['obsidian_knowledge_health_report'],
+				endpoints: ['/api/health', '/api/janitor-scan'],
+				tools: ['obsidian_knowledge_health_report', 'obsidian_knowledge_janitor_scan'],
 				dependencies: ['knowledge-core']
 			},
 			{
@@ -251,5 +266,12 @@ export class KnowledgeServer {
 	private headerValue(value: unknown): string {
 		if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : '';
 		return typeof value === 'string' ? value : '';
+	}
+
+	private allowedOrigin(origin: string): string {
+		if (origin.startsWith('app://') || origin === 'http://127.0.0.1' || origin === 'http://localhost') {
+			return origin;
+		}
+		return 'http://127.0.0.1';
 	}
 }

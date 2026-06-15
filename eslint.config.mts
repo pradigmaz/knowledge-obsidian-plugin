@@ -14,7 +14,6 @@ export default tseslint.config(
 		'package.json',
 		'package-lock.json',
 		'tsconfig.json',
-		'tests',
 		'vitest.config.ts',
 	]),
 	{
@@ -32,4 +31,16 @@ export default tseslint.config(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		files: ['tests/**/*.ts'],
+		rules: {
+			'@typescript-eslint/no-explicit-any': 'off',
+			'@typescript-eslint/no-unsafe-argument': 'off',
+			'@typescript-eslint/no-unsafe-assignment': 'off',
+			'@typescript-eslint/no-unsafe-member-access': 'off',
+			'@typescript-eslint/no-unsafe-return': 'off',
+			'obsidianmd/hardcoded-config-path': 'off',
+			'obsidianmd/no-global-this': 'off',
+		},
+	},
 );

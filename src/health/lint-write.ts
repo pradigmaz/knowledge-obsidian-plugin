@@ -20,6 +20,7 @@ function isFrontMatterCache(value: unknown): value is FrontMatterCache {
 export async function lintWrite(app: App, req: LintWriteRequest): Promise<LintWriteResponse> {
 	let frontmatter: FrontMatterCache | null = null;
 	let tags: string[] = [];
+	let content = req.content ?? '';
 	let contentLength = 0;
 	
 	// Default to optimistic values for new files
@@ -64,6 +65,7 @@ export async function lintWrite(app: App, req: LintWriteRequest): Promise<LintWr
 		}
 		
 		contentLength = file.stat.size;
+		content = await app.vault.cachedRead(file);
 		const cache = app.metadataCache.getFileCache(file);
 		frontmatter = cache?.frontmatter || null;
 		tags = extractTags(cache, frontmatter);
@@ -89,6 +91,7 @@ export async function lintWrite(app: App, req: LintWriteRequest): Promise<LintWr
 		path: req.path,
 		frontmatter,
 		tags,
+		content,
 		contentLength,
 		linksOut,
 		backlinks,

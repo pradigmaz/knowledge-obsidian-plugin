@@ -21,7 +21,8 @@ export class SignalMemoryService {
 		}
 		try {
 			const data = await adapter.read(this.filePath);
-			return JSON.parse(data) as SignalMemoryEntry[];
+			const parsed = JSON.parse(data) as unknown;
+			return Array.isArray(parsed) ? parsed as SignalMemoryEntry[] : [];
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'unknown error';
 			new Notice(`Failed to load signal memory: ${message}`);

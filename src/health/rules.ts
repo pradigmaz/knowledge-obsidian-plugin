@@ -13,6 +13,7 @@ export interface RuleContext {
 	path: string;
 	frontmatter: FrontMatterCache | null;
 	tags: string[];
+	content: string;
 	contentLength: number;
 	linksOut: number;
 	backlinks: number;
@@ -22,6 +23,14 @@ export interface RuleContext {
 	roles: string[];
 	isDuplicateTitle: boolean;
 }
+
+const CREDENTIAL_PATTERNS = [
+	/AKIA[0-9A-Z]{16}/,
+	/AIza[0-9A-Za-z-_]{35}/,
+	/[0-9]{9,10}:[a-zA-Z0-9_-]{35}/,
+	/-----BEGIN.*?PRIVATE KEY-----[\s\S]+?-----END.*?PRIVATE KEY-----/,
+	/(?:password|passwd|pwd|secret|token|api_key)['"]?\s*[:=]\s*['"]?([^\s'"&;]+)['"]?/i
+];
 
 export function checkRules(ctx: RuleContext): HygieneViolation[] {
 	const violations: HygieneViolation[] = [];
@@ -142,6 +151,17 @@ export function checkRules(ctx: RuleContext): HygieneViolation[] {
 			evidence: 'Note shares its title (basename) with another note in a different folder.',
 			suggestedStep: 'Rename one of the notes to ensure unambiguous linking.',
 			expectedEffortMin: 3
+		});
+	}
+
+	// rule: sensitive_data
+	if (CREDENTIAL_PATTERNS.some(pattern => pattern.test(ctx.content))) {
+		violations.push({
+			ruleId: 'sensitive_data',
+			severity: 'high',
+			evidence: 'Note contains credential-like text.',
+			suggestedStep: 'Move credentials to environment variables or a secure storage tool.',
+			expectedEffortMin: 10
 		});
 	}
 

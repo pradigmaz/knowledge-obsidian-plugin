@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { markSignal } from '../../src/memory/signals';
 
-function makeApp() {
-  let data = '[]';
+function makeApp(initialData = '[]') {
+  let data = initialData;
   return {
     vault: {
       adapter: {
@@ -25,6 +25,12 @@ describe('signal memory', () => {
 
   it('stores a valid signal mark', async () => {
     const out = await markSignal(makeApp(), { signalKey: 's1', ruleId: 'r', path: 'N.md', decision: 'open' });
+
+    expect(out).toMatchObject({ signalKey: 's1', ruleId: 'r', path: 'N.md', decision: 'open' });
+  });
+
+  it('ignores non-array signal memory data', async () => {
+    const out = await markSignal(makeApp('{"old":true}'), { signalKey: 's1', ruleId: 'r', path: 'N.md', decision: 'open' });
 
     expect(out).toMatchObject({ signalKey: 's1', ruleId: 'r', path: 'N.md', decision: 'open' });
   });

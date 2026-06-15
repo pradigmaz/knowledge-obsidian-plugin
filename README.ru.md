@@ -15,7 +15,7 @@
   <p>
     <a href="https://github.com/pradigmaz/knowledge-obsidian-plugin/releases"><img src="https://img.shields.io/github/v/release/pradigmaz/knowledge-obsidian-plugin?style=for-the-badge&color=blue" alt="Релиз"></a>
     <a href="https://github.com/pradigmaz/knowledge-obsidian-plugin/blob/master/LICENSE"><img src="https://img.shields.io/github/license/pradigmaz/knowledge-obsidian-plugin?style=for-the-badge&color=success" alt="Лицензия"></a>
-    <a href="https://obsidian.md/"><img src="https://img.shields.io/badge/Obsidian-v1.6.0+-483699?style=for-the-badge&logo=obsidian" alt="Версия Obsidian"></a>
+    <a href="https://obsidian.md/"><img src="https://img.shields.io/badge/Obsidian-v1.1.8+-483699?style=for-the-badge&logo=obsidian" alt="Версия Obsidian"></a>
   </p>
 
   <p>

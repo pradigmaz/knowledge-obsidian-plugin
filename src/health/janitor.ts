@@ -1,7 +1,7 @@
 import { App } from 'obsidian';
 import { JanitorScanRequest, JanitorScanResult } from '../core/types';
 
-export async function runJanitorScan(app: App, payload: JanitorScanRequest): Promise<{ status: string; result: JanitorScanResult }> {
+export async function runJanitorScan(app: App, payload: JanitorScanRequest): Promise<JanitorScanResult> {
 	const folderFilter = payload.folder?.trim();
 	let allMarkdownFiles = app.vault.getMarkdownFiles();
 
@@ -28,10 +28,7 @@ export async function runJanitorScan(app: App, payload: JanitorScanRequest): Pro
 	}
 
 	return {
-		status: 'ok',
-		result: {
-			unstructuredNotes,
-			scannedCount: allMarkdownFiles.length
-		}
+		unstructuredNotes,
+		scannedCount: allMarkdownFiles.length
 	};
 }
