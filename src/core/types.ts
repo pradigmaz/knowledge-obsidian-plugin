@@ -124,6 +124,7 @@ export interface AgentBootstrapRequest {
 	query: string;
 	limit?: number;
 	budget?: number;
+	profile?: 'fast' | 'investigation_summary' | 'report' | 'full';
 	filters?: SearchFilters;
 }
 
@@ -153,6 +154,34 @@ export interface AgentBootstrapResponse {
 	relevantLinks?: string[];
 	relevantBacklinks?: string[];
 	openQuestions?: string[];
+	profile: 'fast' | 'investigation_summary' | 'report' | 'full';
+	degradation_reasons: Array<'semantic_fail_open' | 'chunk_preview_fallback' | 'budget_truncated' | 'profile_limited'>;
+	deepen_available: boolean;
+	deepen_hint?: string;
+	query_bundle: {
+		query: string;
+		limit: number;
+		semantic: boolean;
+		resolved_mode: string;
+		mode_source: string;
+		max_chars: number;
+		max_tokens: number;
+		hits: SearchHit[];
+		context: { notes: SearchHit[] };
+		provenance: { source: string; generated_at: string };
+		followups: string[];
+		report?: unknown;
+	};
+	timings: {
+		index_ready_ms: number;
+		brief_ms: number;
+		search_ms: number;
+		context_ms: number;
+		investigation_ms: number;
+		report_ms: number;
+		total_ms: number;
+	};
+	trimmed_sections: string[];
 	suggestedTools: string[];
 }
 
@@ -246,6 +275,28 @@ export interface SignalMemoryStatusData {
 	recentlyResolved: number;
 }
 
+export interface BenchmarkRequest {
+	cases?: BenchmarkCase[];
+	targetTopKHitRate?: number;
+	datasetPath?: string;
+	k?: number;
+	runsCount?: number;
+	medianRule?: string;
+	baselinePath?: string;
+	thresholds?: BenchmarkThresholds;
+	enforceGates?: boolean;
+}
+
+export interface BenchmarkThresholds {
+	min_recall_at_k?: number;
+	min_mrr_at_k?: number;
+	min_ndcg_at_k?: number;
+	max_avg_estimated_tokens?: number;
+	max_latency_p50_ms?: number;
+	max_latency_p95_ms?: number;
+	max_recall_drop?: number;
+}
+
 export interface BenchmarkCase {
 	query: string;
 	expectedPaths: string[];
@@ -258,12 +309,48 @@ export interface BenchmarkCaseResult {
 	pass: boolean;
 	missingPaths: string[];
 	rankingDrift: Record<string, number>;
+	mrr_at_k: number;
+	ndcg_at_k: number;
+	recall_at_k: number;
+	avg_estimated_tokens: number;
+	latency_ms: number;
+	latency_p50_ms: number;
+	latency_p95_ms: number;
 }
 
 export interface BenchmarkReport {
 	pass: boolean;
+	dataset_path: string;
+	k: number;
+	query_count: number;
+	runs_count: number;
+	median_rule: string;
 	topKHitRate: number;
+	targetTopKHitRate?: number;
+	mrr_at_k: number;
+	ndcg_at_k: number;
+	recall_at_k: number;
+	avg_estimated_tokens: number;
+	latency_p50_ms: number;
+	latency_p95_ms: number;
+	baseline?: { path: string; metrics: BenchmarkMetrics };
+	candidate?: { runs: BenchmarkMetrics[]; median: BenchmarkMetrics };
+	diff?: Partial<Record<keyof BenchmarkMetrics, number>>;
+	thresholds?: BenchmarkThresholds;
+	enforce_gates: boolean;
 	cases: BenchmarkCaseResult[];
+}
+
+export interface BenchmarkMetrics {
+	dataset_path: string;
+	k: number;
+	query_count: number;
+	recall_at_k: number;
+	mrr_at_k: number;
+	ndcg_at_k: number;
+	avg_estimated_tokens: number;
+	latency_p50_ms: number;
+	latency_p95_ms: number;
 }
 
 export interface RouteTraceRequest {

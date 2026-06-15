@@ -4,13 +4,21 @@ import { buildBrief } from '../memory/brief';
 import { search } from './engine';
 
 export async function agentBootstrap(app: App, payload: AgentBootstrapRequest): Promise<AgentBootstrapResponse> {
+	const startMs = Date.now();
+	const profile = payload.profile ?? 'fast';
+	const degradationReasons: AgentBootstrapResponse['degradation_reasons'] = [];
+	const trimmedSections: string[] = [];
+	const briefStartMs = Date.now();
 	const brief = buildBrief(app);
+	const briefMs = Date.now() - briefStartMs;
+	const searchStartMs = Date.now();
 	const searchResult = await search(app, { 
 		query: payload.query, 
 		limit: payload.limit ?? 10,
 		filters: payload.filters,
 		intent: 'bootstrap'
 	});
+	const searchMs = Date.now() - searchStartMs;
 
 	let notes = searchResult.results;
 
@@ -25,6 +33,8 @@ export async function agentBootstrap(app: App, payload: AgentBootstrapRequest): 
 		let excerpt = note.excerpt;
 		if (currentLen + excerpt.length > budget) {
 			excerpt = excerpt.slice(0, budget - currentLen);
+			if (!degradationReasons.includes('budget_truncated')) degradationReasons.push('budget_truncated');
+			if (!trimmedSections.includes('notes.excerpt')) trimmedSections.push('notes.excerpt');
 		}
 		currentLen += excerpt.length;
 		return { ...note, excerpt };
@@ -89,6 +99,34 @@ export async function agentBootstrap(app: App, payload: AgentBootstrapRequest): 
 		relevantLinks,
 		relevantBacklinks,
 		openQuestions,
+		profile,
+		degradation_reasons: degradationReasons,
+		deepen_available: notes.length > 0,
+		deepen_hint: notes.length > 0 ? 'Use obsidian_knowledge_smart_search for deeper context.' : undefined,
+		query_bundle: {
+			query: payload.query,
+			limit: payload.limit ?? 10,
+			semantic: false,
+			resolved_mode: 'lexical_graph',
+			mode_source: 'knowledge_plugin',
+			max_chars: budget,
+			max_tokens: Math.ceil(budget / 4),
+			hits: notes,
+			context: { notes },
+			provenance: { source: 'knowledge-obsidian-plugin', generated_at: new Date().toISOString() },
+			followups: openQuestions,
+			report: searchResult.queryReport
+		},
+		timings: {
+			index_ready_ms: 0,
+			brief_ms: briefMs,
+			search_ms: searchMs,
+			context_ms: 0,
+			investigation_ms: 0,
+			report_ms: 0,
+			total_ms: Date.now() - startMs
+		},
+		trimmed_sections: trimmedSections,
 		suggestedTools: [
 			'obsidian_get_note',
 			'obsidian_knowledge_smart_search'
@@ -99,6 +137,12 @@ export async function agentBootstrap(app: App, payload: AgentBootstrapRequest): 
 }
 
 function fitResponseToBudget(response: AgentBootstrapResponse, budget: number): AgentBootstrapResponse {
+	const markTrimmed = (section: string) => {
+		if (!response.trimmed_sections.includes(section)) response.trimmed_sections.push(section);
+		if (!response.degradation_reasons.includes('budget_truncated')) {
+			response.degradation_reasons.push('budget_truncated');
+		}
+	};
 	while (JSON.stringify(response).length > budget) {
 		const note = [...response.notes].reverse().find(item => item.excerpt);
 		if (!note) break;
@@ -108,14 +152,40 @@ function fitResponseToBudget(response: AgentBootstrapResponse, budget: number): 
 		} else {
 			note.excerpt = note.excerpt?.slice(0, -overflow);
 		}
+		response.query_bundle.hits = response.notes;
+		response.query_bundle.context.notes = response.notes;
+		markTrimmed('notes.excerpt');
 	}
-	if (JSON.stringify(response).length > budget) response.openQuestions = [];
-	if (JSON.stringify(response).length > budget) response.relevantLinks = [];
-	if (JSON.stringify(response).length > budget) response.relevantBacklinks = [];
-	if (JSON.stringify(response).length > budget) response.brief = {};
-	if (JSON.stringify(response).length > budget) response.suggestedTools = [];
+	if (JSON.stringify(response).length > budget) {
+		response.openQuestions = [];
+		response.query_bundle.followups = [];
+		markTrimmed('openQuestions');
+	}
+	if (JSON.stringify(response).length > budget) {
+		response.relevantLinks = [];
+		markTrimmed('relevantLinks');
+	}
+	if (JSON.stringify(response).length > budget) {
+		response.relevantBacklinks = [];
+		markTrimmed('relevantBacklinks');
+	}
+	if (JSON.stringify(response).length > budget) {
+		response.query_bundle.report = undefined;
+		markTrimmed('query_bundle.report');
+	}
+	if (JSON.stringify(response).length > budget) {
+		response.brief = {};
+		markTrimmed('brief');
+	}
+	if (JSON.stringify(response).length > budget) {
+		response.suggestedTools = [];
+		markTrimmed('suggestedTools');
+	}
 	while (JSON.stringify(response).length > budget && response.notes.length > 0) {
 		response.notes.pop();
+		response.query_bundle.hits = response.notes;
+		response.query_bundle.context.notes = response.notes;
+		markTrimmed('notes');
 	}
 	return response;
 }

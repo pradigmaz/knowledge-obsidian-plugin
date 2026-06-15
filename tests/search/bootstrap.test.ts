@@ -27,9 +27,20 @@ describe('agentBootstrap', () => {
 			}
 		} as any;
 
-		const response = await agentBootstrap(app, { query: 'alpha', budget: 200 });
+		const response = await agentBootstrap(app, { query: 'alpha', budget: 900 });
 
-		expect(JSON.stringify(response).length).toBeLessThanOrEqual(200);
+		expect(JSON.stringify(response).length).toBeLessThanOrEqual(900);
+		expect(response.profile).toBe('fast');
+		expect(response.query_bundle.query).toBe('alpha');
+		expect(response.timings).toMatchObject({
+			index_ready_ms: expect.any(Number),
+			brief_ms: expect.any(Number),
+			search_ms: expect.any(Number),
+			context_ms: expect.any(Number),
+			investigation_ms: expect.any(Number),
+			report_ms: expect.any(Number),
+			total_ms: expect.any(Number)
+		});
 	});
 
 	it('includes nearby backlinks for retrieved notes', async () => {
@@ -53,9 +64,10 @@ describe('agentBootstrap', () => {
 			}
 		} as any;
 
-		const response = await agentBootstrap(app, { query: 'alpha', budget: 2000 });
+		const response = await agentBootstrap(app, { query: 'alpha', budget: 6000 });
 
 		expect(response.relevantLinks).toEqual(['Notes/Beta.md']);
 		expect(response.relevantBacklinks).toEqual(['Notes/Gamma.md']);
+		expect(response.deepen_available).toBe(true);
 	});
 });
