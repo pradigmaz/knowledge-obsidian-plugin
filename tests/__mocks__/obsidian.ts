@@ -9,9 +9,14 @@ export class App {
 
 export class TFile {
   path: string;
-  stat: any;
-  constructor(path: string) {
+  basename: string;
+  extension: string;
+  stat: { mtime: number; size: number };
+
+  constructor(path: string, stat: { mtime?: number; size?: number } = {}) {
     this.path = path;
-    this.stat = { mtime: Date.now() };
+    this.basename = path.split('/').pop()?.replace(/\.[^.]+$/, '') ?? path;
+    this.extension = path.split('.').pop() ?? '';
+    this.stat = { mtime: stat.mtime ?? Date.now(), size: stat.size ?? 0 };
   }
 }

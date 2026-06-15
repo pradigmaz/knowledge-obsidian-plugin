@@ -14,6 +14,8 @@ export default tseslint.config(
 		'package.json',
 		'package-lock.json',
 		'tsconfig.json',
+		'tests',
+		'vitest.config.ts',
 	]),
 	{
 		languageOptions: {

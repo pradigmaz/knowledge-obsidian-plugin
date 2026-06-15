@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TFile } from 'obsidian';
 import { normalizeExcerpt } from '../../src/search/engine';
 
 describe('normalizeExcerpt', () => {
@@ -32,9 +33,9 @@ describe('applyFilters', () => {
   const mockApp = {
     vault: {
       getAbstractFileByPath: (path: string) => {
-        if (path === 'folder1/file1.md') return { extension: 'md', stat: { mtime: 1000 } };
-        if (path === 'folder2/file2.png') return { extension: 'png', stat: { mtime: 2000 } };
-        if (path === 'folder1/sub/file3.md') return { extension: 'md', stat: { mtime: 3000 } };
+        if (path === 'folder1/file1.md') return new TFile(path, { mtime: 1000 });
+        if (path === 'folder2/file2.png') return new TFile(path, { mtime: 2000 });
+        if (path === 'folder1/sub/file3.md') return new TFile(path, { mtime: 3000 });
         return null;
       }
     },
@@ -67,6 +68,20 @@ describe('applyFilters', () => {
     const res = applyFilters(mockApp, mockHits, { tags: ['#project'] });
     expect(res.length).toBe(1);
     expect(res[0].path).toBe('folder1/file1.md');
+  });
+
+  it('filters by frontmatter tags', () => {
+    const app = {
+      vault: {
+        getAbstractFileByPath: () => new TFile('N.md', { mtime: 1000 })
+      },
+      metadataCache: {
+        getFileCache: () => ({ frontmatter: { tags: ['knowledge'] } })
+      }
+    } as any;
+
+    const res = applyFilters(app, [{ path: 'N.md', score: 1 }] as any[], { tags: ['knowledge'] });
+    expect(res.map(hit => hit.path)).toEqual(['N.md']);
   });
 
   it('filters by modified date ranges', () => {
@@ -110,5 +125,3 @@ describe('scoreHit with intents', () => {
     expect(scored.why.join(' ')).toContain('Lookup intent');
   });
 });
-
-

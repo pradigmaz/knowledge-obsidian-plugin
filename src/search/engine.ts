@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { SearchRequest, SearchHit, GraphStats, QueryReport } from '../core/types';
 import { graphStats } from '../core/graph';
+import { extractTags } from '../utils/tags';
 
 export async function search(app: App, payload: SearchRequest) {
 	const query = payload.query?.trim();
@@ -47,7 +48,7 @@ async function searchOmnisearch(query: string): Promise<SearchHit[]> {
 			score: originalScore,
 			graphScore: 0,
 			source: 'omnisearch',
-			excerpt: normalizeExcerpt(String(row.excerpt ?? row.context ?? '')),
+			excerpt: normalizeExcerpt(stringValue(row.excerpt) || stringValue(row.context)),
 			matches: Array.isArray(row.matches) ? row.matches : undefined,
 			why: [],
 		};
@@ -60,26 +61,26 @@ export function scoreHit(hit: SearchHit, graph: GraphStats, intent?: import('../
 	const backlinks = graph.backlinks[hit.path] ?? 0;
 
 	// Intent multipliers
-	let originalWeight = 1.0;
-	let graphWeight = 1.0;
+	const intentWeights: Record<string, { o: number; g: number }> = {
+		lookup: { o: 1.5, g: 0.5 },
+		research: { o: 0.8, g: 1.5 },
+		decision: { o: 1.0, g: 1.2 },
+		cleanup: { o: 1.0, g: 0.5 },
+		bootstrap: { o: 1.0, g: 0.8 }
+	};
 
-	if (intent === 'lookup') {
-		originalWeight = 1.5;
-		graphWeight = 0.5;
-	} else if (intent === 'research') {
-		originalWeight = 0.8;
-		graphWeight = 1.5;
-	} else if (intent === 'decision') {
-		graphWeight = 1.2;
-	} else if (intent === 'cleanup') {
-		graphWeight = 0.5;
-	} else if (intent === 'bootstrap') {
-		originalWeight = 1.0;
-		graphWeight = 0.8;
+	const weights = intent && intentWeights[intent] ? intentWeights[intent] : { o: 1.0, g: 1.0 };
+	const graphScore = (Math.log1p(links) * 0.15 + Math.log1p(backlinks) * 0.35) * weights.g;
+	let finalOriginalScore = hit.originalScore * weights.o;
+
+	// Generated Lineage Demotion
+	const lowerPath = hit.path.toLowerCase();
+	const isGenerated = lowerPath.includes('log.md') || lowerPath.includes('imports.md') || lowerPath.includes('logs/');
+	if (isGenerated) {
+		finalOriginalScore *= 0.1;
 	}
-
-	const graphScore = (Math.log1p(links) * 0.15 + Math.log1p(backlinks) * 0.35) * graphWeight;
-	const finalOriginalScore = hit.originalScore * originalWeight;
+	
+	const finalGraphScore = isGenerated ? graphScore * 0.1 : graphScore;
 	
 	const why = [
 		`Base score: ${finalOriginalScore.toFixed(3)} (${hit.source})`
@@ -88,16 +89,18 @@ export function scoreHit(hit: SearchHit, graph: GraphStats, intent?: import('../
 	if (intent) why.push(`${intent.charAt(0).toUpperCase() + intent.slice(1)} intent applied`);
 	if (links > 0) why.push(`Outgoing links boost: ${links}`);
 	if (backlinks > 0) why.push(`Backlinks boost: ${backlinks}`);
+	if (isGenerated) why.push(`Generated Lineage Demotion applied (-90%)`);
 
 	return {
 		...hit,
-		graphScore,
-		score: finalOriginalScore + graphScore,
+		graphScore: finalGraphScore,
+		score: finalOriginalScore + finalGraphScore,
 		why
 	};
 }
 
 export function getOmnisearchApi(): { search(query: string): Promise<unknown[]> } | null {
+	if (typeof window === 'undefined') return null;
 	const api = (window as unknown as { omnisearch?: { search?: unknown } }).omnisearch;
 	return api && typeof api.search === 'function'
 		? (api as { search(query: string): Promise<unknown[]> })
@@ -110,7 +113,11 @@ function pathFromOmnisearch(item: unknown): string {
 	if (typeof path === 'string') return path;
 	const file = row.file;
 	if (file instanceof TFile) return file.path;
-	return String(row.basename ?? 'unknown.md');
+	return stringValue(row.basename) || 'unknown.md';
+}
+
+function stringValue(value: unknown): string {
+	return typeof value === 'string' ? value : '';
 }
 
 function titleFromPath(path: string) {
@@ -143,28 +150,26 @@ export function applyFilters(app: App, hits: SearchHit[], filters?: import('../c
 		}
 
 		const file = app.vault.getAbstractFileByPath(hit.path);
-		if (!file) return false;
+		if (!(file instanceof TFile)) return false;
 
-		const ext = (file as any).extension;
+		const ext = file.extension;
 		if (filters.fileTypes && filters.fileTypes.length > 0 && !filters.fileTypes.includes(ext)) {
 			return false;
 		}
 
-		const stat = (file as any).stat;
+		const stat = file.stat;
 		if (stat) {
 			if (filters.modifiedAfter && stat.mtime < filters.modifiedAfter) return false;
 			if (filters.modifiedBefore && stat.mtime > filters.modifiedBefore) return false;
 		}
 
 		if (filters.tags && filters.tags.length > 0) {
-			const cache = app.metadataCache.getFileCache(file as TFile);
-			const fileTags = cache?.tags?.map(t => t.tag) || [];
-			const hasMatchingTag = filters.tags.some(tag => fileTags.includes(tag));
+			const cache = app.metadataCache.getFileCache(file);
+			const fileTags = extractTags(cache);
+			const hasMatchingTag = filters.tags.some(tag => fileTags.includes(tag.replace(/^#/, '')));
 			if (!hasMatchingTag) return false;
 		}
 
 		return true;
 	});
 }
-
-

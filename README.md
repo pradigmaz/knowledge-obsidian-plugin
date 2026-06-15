@@ -1,92 +1,71 @@
-# Obsidian Sample Plugin
+<div align="center">
+  
+  <img src="https://obsidian.md/images/obsidian-logo-gradient.svg" alt="Obsidian Logo" width="120" height="120" />
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+  <h1>Knowledge Analytics for Obsidian</h1>
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+  <p>
+    <b>Advanced graph analytics, Google OKF validation, and context hygiene for your vault.</b>
+  </p>
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
+  <p>
+    <b>🇺🇸 English</b> | <a href="README.ru.md">🇷🇺 Русский</a>
+  </p>
 
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and outputs a Notice on click.
-- Registers a global interval which logs 'setInterval' to the console.
+  <p>
+    <a href="https://github.com/pradigmaz/knowledge-obsidian-plugin/releases"><img src="https://img.shields.io/github/v/release/pradigmaz/knowledge-obsidian-plugin?style=for-the-badge&color=blue" alt="Release"></a>
+    <a href="https://github.com/pradigmaz/knowledge-obsidian-plugin/blob/master/LICENSE"><img src="https://img.shields.io/github/license/pradigmaz/knowledge-obsidian-plugin?style=for-the-badge&color=success" alt="License"></a>
+    <a href="https://obsidian.md/"><img src="https://img.shields.io/badge/Obsidian-v1.6.0+-483699?style=for-the-badge&logo=obsidian" alt="Obsidian Version"></a>
+  </p>
 
-## First time developing plugins?
+  <p>
+    <i>This plugin serves as the underlying data engine for the <a href="https://github.com/pradigmaz/obsidian-mcp-server">obsidian-knowledge-mcp</a> server.</i>
+  </p>
+</div>
 
-Quick starting guide for new plugin devs:
+---
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `src/main.ts` to `main.js`.
-- Make changes to `src/main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+## ⚠️ Required Dependencies
 
-## Releasing new releases
+> **IMPORTANT:** To enable full-text search and BM25 ranking, this plugin **strictly requires** the [Omnisearch](https://github.com/scambier/obsidian-omnisearch) plugin to be installed and enabled in your vault.
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+---
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+## 🌟 Overview
 
-## Adding your plugin to the community plugin list
+**Knowledge Analytics** enforces structural boundaries and performs heavy graph analysis that native Obsidian does not natively support. It is designed to keep your vault clean, scalable, and readable for both humans and autonomous AI agents.
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+### 🛡️ Core Features
 
-## How to use
+- **Google OKF (Open Knowledge Format) Validation:** Automatically scans notes for structural compliance. Notes missing the mandatory `type` and `summary`/`description` frontmatter fields are flagged by the Janitor scanner. Read the [Google OKF Spec](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) for details.
+- **BFS Route Tracing:** Graph algorithm to find the shortest path of connections between any two notes in your vault (up to a 2000-node limit).
+- **Lineage Demotion:** Auto-generated files, logs, and daily dumps are algorithmically penalized in search results so they don't pollute your primary knowledge base.
+- **Concept Clustering:** Analyzes a note's immediate neighborhood to surface cross-links and semantic neighbors.
+- **Vault Health Reports:** Generates a brief of your workspace, highlighting orphaned notes, empty hubs, and metadata regressions.
 
-- Clone this repo.
-- Make sure your NodeJS is at least v18 (`node --version`).
-- `npm i` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+---
 
-## Manually installing the plugin
+## ⚙️ Installation
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+### Option A: Manual Installation (Recommended for Production)
+1. Download `main.js`, `manifest.json`, and `styles.css` from the latest [Release](https://github.com/pradigmaz/knowledge-obsidian-plugin/releases).
+2. Create a folder named `knowledge` inside your `.obsidian/plugins/` directory.
+3. Place the downloaded files into that folder.
+4. Reload Obsidian and enable **Knowledge Analytics** in Community Plugins.
 
-## Improve code quality with eslint
+### Option B: Using BRAT (For Beta Testing)
+1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from the Community Plugins list.
+2. Add `pradigmaz/knowledge-obsidian-plugin` to your BRAT repository list.
+3. Enable **Knowledge Analytics** in Community Plugins.
 
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code.
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+---
 
-## Funding URL
+## 🚀 Usage
 
-You can include funding URLs where people who use your plugin can financially support it.
+The plugin operates entirely in the background, listening on port `27125`. It responds to internal REST API calls made by the `obsidian-mcp-server`. There is no visual UI or command palette interaction required.
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+---
 
-```json
-{
-	"fundingUrl": "https://buymeacoffee.com"
-}
-```
+## 📄 License
 
-If you have multiple URLs, you can also do:
-
-```json
-{
-	"fundingUrl": {
-		"Buy Me a Coffee": "https://buymeacoffee.com",
-		"GitHub Sponsor": "https://github.com/sponsors",
-		"Patreon": "https://www.patreon.com/"
-	}
-}
-```
-
-## API Documentation
-
-See https://docs.obsidian.md
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

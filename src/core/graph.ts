@@ -1,19 +1,11 @@
 import { App } from 'obsidian';
 import { GraphStats } from './types';
 
-let cachedGraph: { stats: GraphStats; timestamp: number } | null = null;
-const CACHE_TTL_MS = 15000;
-
 export function totalValues(record: Record<string, number> | undefined): number {
 	return Object.values(record ?? {}).reduce((sum, count) => sum + count, 0);
 }
 
 export function graphStats(app: App): GraphStats {
-	const now = Date.now();
-	if (cachedGraph && now - cachedGraph.timestamp < CACHE_TTL_MS) {
-		return cachedGraph.stats;
-	}
-
 	const links: Record<string, number> = {};
 	const backlinks: Record<string, number> = {};
 	const resolvedLinks = app.metadataCache.resolvedLinks;
@@ -25,31 +17,36 @@ export function graphStats(app: App): GraphStats {
 		}
 	}
 
-	const stats = { links, backlinks };
-	cachedGraph = { stats, timestamp: now };
-	return stats;
+	return { links, backlinks };
 }
 
-let cachedEntries: { entries: Array<{ path: string; score: number }>; timestamp: number } | null = null;
+export function getAdjacencyList(app: App): Record<string, string[]> {
+	const resolved = app.metadataCache.resolvedLinks;
+	const adjacency: Record<string, string[]> = {};
 
-export function entryPoints(app: App, graph: GraphStats) {
-	const now = Date.now();
-	if (cachedEntries && now - cachedEntries.timestamp < CACHE_TTL_MS) {
-		return cachedEntries.entries;
+	for (const [src, targets] of Object.entries(resolved)) {
+		if (!adjacency[src]) adjacency[src] = [];
+		for (const tgt of Object.keys(targets)) {
+			adjacency[src].push(tgt);
+			if (!adjacency[tgt]) adjacency[tgt] = [];
+			adjacency[tgt].push(src);
+		}
 	}
 
-	const entries = app.vault
+	return adjacency;
+}
+
+
+export function entryPoints(app: App, graph: GraphStats) {
+	return app.vault
 		.getMarkdownFiles()
 		.map((file) => {
 			const links = graph.links[file.path] ?? 0;
 			const backlinks = graph.backlinks[file.path] ?? 0;
-			return { path: file.path, score: links + backlinks * 2 };
+			return { path: file.path, score: links + backlinks * 2, mtime: file.stat.mtime };
 		})
 		.filter((item) => item.score > 0)
 		.sort((a, b) => b.score - a.score);
-
-	cachedEntries = { entries, timestamp: now };
-	return entries;
 }
 
 export function unresolvedLinksCount(app: App): number {
