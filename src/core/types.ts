@@ -22,16 +22,102 @@ export interface SearchHit {
 	originalScore: number;
 	path: string;
 	score: number;
+	scoreParts?: SearchScoreParts;
 	source: string;
 	title: string;
 	why: string[];
 }
 
+export interface SearchScoreParts {
+	omnisearch: number;
+	backlinks: number;
+	outgoingLinks: number;
+	tagFolder: number;
+	recency: number;
+	apiSurface: number;
+	generatedPenalty: number;
+}
+
+export interface QueryReportProvenance {
+	basis: 'indexed' | 'preview_fallback' | 'graph_derived' | 'heuristic' | 'mixed' | 'omnisearch';
+	derivation: string;
+	freshness: string;
+	strength: 'strong' | 'moderate' | 'weak' | 'fallback_only' | 'high';
+	reasons: string[];
+}
+
+export interface QueryReportExplain {
+	lexical: number;
+	graph: number;
+	semantic: number;
+	rrf: number;
+	graph_rrf: number;
+	rank_before: number;
+	rank_after: number;
+	semantic_source: string;
+	semantic_outcome: string;
+	graph_seed_path: string;
+	graph_edge_kinds: string[];
+	graph_hops: number;
+}
+
+export interface QueryReportSelectedContext {
+	path: string;
+	score: number;
+	chars: number;
+	chunk_idx: number;
+	chunk_source: string;
+	why: string[];
+	explain: QueryReportExplain;
+	provenance: QueryReportProvenance;
+}
+
 export interface QueryReport {
-	source: string;
-	fallbackUsed: boolean;
-	resultCount: number;
-	warnings: string[];
+	// RMU fields
+	query_id: string;
+	timestamp_utc: string;
+	project_root: string;
+	resolved_mode: string;
+	mode_source: string;
+	budget: {
+		max_tokens: number;
+		used_estimate: number;
+		hard_truncated: boolean;
+	};
+	retrieval_pipeline: Array<{ stage: string; candidates: number; kept: number }>;
+	selected_context: QueryReportSelectedContext[];
+	provenance: QueryReportProvenance;
+	confidence: {
+		overall: number;
+		reasons: string[];
+		signals: {
+			margin_top1_top2: number;
+			explain_coverage: number;
+			semantic_coverage: number;
+			semantic_outcome: string;
+			stage_drop_ratio: number;
+			hard_truncated: boolean;
+		};
+	};
+	gaps: string[];
+	index_telemetry: {
+		last_index_lock_wait_ms: number;
+		last_embedding_cache_hits: number;
+		last_embedding_cache_misses: number;
+		chunk_coverage: number;
+		chunk_source: string;
+	};
+	degradation_reasons: string[];
+	deepen_available: boolean;
+
+	// Legacy fields (optional)
+	source?: string;
+	fallbackUsed?: boolean;
+	resultCount?: number;
+	warnings?: string[];
+	filters?: SearchFilters;
+	topRankingFactors?: string[];
+	degradation?: string[];
 }
 
 export interface AgentBootstrapRequest {
@@ -49,6 +135,7 @@ export interface WorkspaceBriefData {
 	linksCount: number;
 	unresolvedLinksCount: number;
 	isolatedNotes: number;
+	backlinkHubs: Array<{ path: string; backlinks: number }>;
 	topFolders: Array<{ folder: string; count: number }>;
 	topTags: Array<{ tag: string; count: number }>;
 	commonProperties: Array<{ property: string; count: number }>;
@@ -64,6 +151,7 @@ export interface AgentBootstrapResponse {
 	brief: Partial<WorkspaceBriefData>;
 	notes: SearchHit[];
 	relevantLinks?: string[];
+	relevantBacklinks?: string[];
 	openQuestions?: string[];
 	suggestedTools: string[];
 }
@@ -78,7 +166,8 @@ export type HygieneRuleId =
 	| 'stale_hub' 
 	| 'empty' 
 	| 'duplicate_title'
-	| 'arch_violation_layering';
+	| 'arch_violation_layering'
+	| 'sensitive_data';
 
 export type Severity = 'info' | 'warn' | 'high';
 
@@ -102,6 +191,7 @@ export interface VaultHealthReport {
 	hotspots: NoteHotspot[];
 	groupedByFolder: Record<string, NoteHotspot[]>;
 	groupedByTag: Record<string, NoteHotspot[]>;
+	severityCounts: Record<Severity, number>;
 }
 
 export interface GraphStats {
@@ -182,10 +272,33 @@ export interface RouteTraceRequest {
 }
 
 export interface RouteTraceResult {
+	seed: { seed: string; seed_kind: string };
+	best_route: {
+		segments: Array<{
+			kind: string;
+			path: string;
+			language: string;
+			evidence: string;
+			relation_kind: string;
+			source_kind: string;
+			score: number;
+		}>;
+		total_hops: number;
+		total_weight: number;
+		collapsed_hops: number;
+		confidence: number;
+	};
+	alternate_routes: unknown[];
+	unresolved_gaps: unknown[];
+	capability_status: string;
+	unsupported_sources: string[];
+	confidence: number;
 	source: string;
 	target: string;
 	path: string[];
 	distance: number;
+	found?: boolean;
+	reason?: 'source_not_found' | 'target_not_found' | 'no_path';
 }
 
 export interface ConceptClusterRequest {
@@ -194,8 +307,24 @@ export interface ConceptClusterRequest {
 }
 
 export interface ConceptClusterResult {
-	clusterTags: string[];
-	relatedNotes: string[];
+	seed: { seed: string; seed_kind: string };
+	variants: Array<{
+		id: string;
+		entry_anchor: { path: string; language: string };
+		route: unknown[];
+		constraints: unknown[];
+		related_tests: unknown[];
+		confidence: number;
+		gaps: unknown[];
+	}>;
+	cluster_summary: { variant_count: number; languages: string[]; route_kinds: string[] };
+	gaps: string[];
+	capability_status: string;
+	unsupported_sources: string[];
+	confidence: number;
+	concept: string;
+	cluster: string[];
+	relatedConcepts: string[];
 	centralityScore: number;
 }
 
