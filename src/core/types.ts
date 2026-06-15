@@ -244,10 +244,14 @@ export interface CapabilityDescriptor {
 export interface KnowledgeStatus {
 	status: 'ready' | 'degraded' | 'unavailable';
 	schemaVersion: string;
+	pluginVersion: string;
 	vaultName: string;
 	enabledModules: string[];
+	requiredCapabilities: CapabilityDescriptor[];
 	omnisearchAvailable: boolean;
 	warnings: string[];
+	errors?: string[];
+	recoveryHint?: string;
 }
 
 export type SignalDecision = 'open' | 'accepted' | 'ignored' | 'resolved';

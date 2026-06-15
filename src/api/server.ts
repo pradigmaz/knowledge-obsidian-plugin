@@ -9,16 +9,18 @@ import { runQueryBenchmark } from '../benchmark/runner';
 import { routeTrace } from '../search/route-trace';
 import { conceptCluster } from '../search/cluster';
 import { runJanitorScan } from '../health/janitor';
-import { SearchRequest, AgentBootstrapRequest, SCHEMA_VERSION, KnowledgeStatus, CapabilityDescriptor, SignalMemoryMarkRequest, BenchmarkCase, RouteTraceRequest, ConceptClusterRequest, JanitorScanRequest } from '../core/types';
+import { SearchRequest, AgentBootstrapRequest, SCHEMA_VERSION, KnowledgeStatus, CapabilityDescriptor, SignalMemoryMarkRequest, BenchmarkCase, BenchmarkRequest, RouteTraceRequest, ConceptClusterRequest, JanitorScanRequest } from '../core/types';
 import type { LintWriteRequest } from '../health/lint-write';
 
 export class KnowledgeServer {
 	port = 27125;
 	server: http.Server | null = null;
 	app: App;
+	pluginVersion: string;
 
-	constructor(app: App) {
+	constructor(app: App, pluginVersion: string) {
 		this.app = app;
+		this.pluginVersion = pluginVersion;
 	}
 
 	start() {
@@ -50,6 +52,7 @@ export class KnowledgeServer {
 		res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 		res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Schema-Version, X-Gatekeeper-Strict');
 		res.setHeader('X-Schema-Version', SCHEMA_VERSION);
+		res.setHeader('X-Knowledge-Plugin', '1');
 
 		if (req.method === 'OPTIONS') {
 			res.statusCode = 204;
@@ -57,15 +60,17 @@ export class KnowledgeServer {
 			return;
 		}
 
-		const headerSchema = req.headers['x-schema-version'];
-		const clientSchema = Array.isArray(headerSchema) ? headerSchema[0] : headerSchema;
-		if (!clientSchema) {
-			this.sendJson(res, { error: 'Missing X-Schema-Version header' }, 400);
-			return;
-		}
-		if (clientSchema !== SCHEMA_VERSION) {
-			this.sendJson(res, { error: `Schema version mismatch. Expected ${SCHEMA_VERSION}, got ${clientSchema}` }, 400);
-			return;
+		if (!(req.method === 'GET' && req.url === '/api/status')) {
+			const headerSchema = req.headers['x-schema-version'];
+			const clientSchema = Array.isArray(headerSchema) ? headerSchema[0] : headerSchema;
+			if (!clientSchema) {
+				this.sendJson(res, { error: 'Missing X-Schema-Version header' }, 400);
+				return;
+			}
+			if (clientSchema !== SCHEMA_VERSION) {
+				this.sendJson(res, { error: `Schema version mismatch. Expected ${SCHEMA_VERSION}, got ${clientSchema}` }, 400);
+				return;
+			}
 		}
 
 		if (req.method === 'POST' || req.method === 'PUT') {
@@ -116,17 +121,17 @@ export class KnowledgeServer {
 				const payload = await this.readJson<SignalMemoryMarkRequest>(req);
 				this.sendJson(res, await markSignal(this.app, payload));
 			} else if (req.method === 'POST' && req.url === '/api/benchmark') {
-				const rawPayload = await this.readJson<{ cases?: BenchmarkCase[] }>(req);
-				let payload = rawPayload?.cases || [];
-				if (payload.length === 0) {
+				const rawPayload = await this.readJson<BenchmarkRequest>(req);
+				let cases = rawPayload?.cases || [];
+				if (cases.length === 0) {
 					const file = this.app.vault.getAbstractFileByPath(`${this.app.vault.configDir}/knowledge-benchmarks.json`);
 					if (file instanceof TFile) {
 						const content = await this.app.vault.read(file);
 						const parsed = JSON.parse(content) as unknown;
-						payload = Array.isArray(parsed) ? parsed as BenchmarkCase[] : [];
+						cases = Array.isArray(parsed) ? parsed as BenchmarkCase[] : [];
 					}
 				}
-				this.sendJson(res, await runQueryBenchmark(this.app, payload || []));
+				this.sendJson(res, await runQueryBenchmark(this.app, { ...rawPayload, cases }));
 			} else if (req.method === 'POST' && req.url === '/api/route-trace') {
 				const payload = await this.readJson<RouteTraceRequest>(req);
 				this.sendJson(res, await routeTrace(this.app, payload));
@@ -156,10 +161,14 @@ export class KnowledgeServer {
 		return {
 			status: omni ? 'ready' : 'degraded',
 			schemaVersion: SCHEMA_VERSION,
+			pluginVersion: this.pluginVersion,
 			vaultName: this.app.vault.getName(),
 			enabledModules: ['core', 'search', 'health', 'memory'],
+			requiredCapabilities: this.buildCapabilities(),
 			omnisearchAvailable: !!omni,
 			warnings: omni ? [] : ['Omnisearch plugin is not available. Search endpoints are degraded.'],
+			errors: omni ? [] : ['Omnisearch is not available'],
+			recoveryHint: omni ? undefined : 'Enable Omnisearch plugin in Obsidian settings'
 		};
 	}
 

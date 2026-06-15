@@ -13,11 +13,15 @@ afterEach(() => {
 describe('KnowledgeServer status', () => {
   it('reports degraded search when Omnisearch is unavailable', () => {
     (globalThis as any).window = {};
-    const server = new KnowledgeServer({ vault: { getName: () => 'vault' } } as any);
+    const server = new KnowledgeServer({ vault: { getName: () => 'vault' } } as any, '1.0.0');
 
     expect(server.buildStatus()).toMatchObject({
       status: 'degraded',
-      omnisearchAvailable: false
+      omnisearchAvailable: false,
+      pluginVersion: '1.0.0',
+      requiredCapabilities: expect.arrayContaining([
+        expect.objectContaining({ id: 'knowledge-search', status: 'degraded' })
+      ])
     });
     expect(server.buildCapabilities().find(cap => cap.id === 'knowledge-search')).toMatchObject({
       status: 'degraded'
@@ -79,7 +83,7 @@ async function call(server: KnowledgeServer, req: ReturnType<typeof makeReq>) {
 
 describe('KnowledgeServer HTTP boundary', () => {
   it('allows local preflight without schema header', async () => {
-    const server = new KnowledgeServer(makeApp() as never);
+    const server = new KnowledgeServer(makeApp() as never, '1.0.0');
     const res = await call(server, makeReq('OPTIONS', '/api/search', { origin: 'http://localhost' }));
 
     expect(res.statusCode).toBe(204);
@@ -87,8 +91,8 @@ describe('KnowledgeServer HTTP boundary', () => {
   });
 
   it('rejects mismatched schema versions', async () => {
-    const server = new KnowledgeServer(makeApp() as never);
-    const res = await call(server, makeReq('GET', '/api/status', { 'x-schema-version': '0.0.0' }));
+    const server = new KnowledgeServer(makeApp() as never, '1.0.0');
+    const res = await call(server, makeReq('GET', '/api/brief', { 'x-schema-version': '0.0.0' }));
 
     expect(res.statusCode).toBe(400);
     expect(JSON.parse(res.payload)).toMatchObject({
@@ -96,8 +100,25 @@ describe('KnowledgeServer HTTP boundary', () => {
     });
   });
 
+  it('returns status without schema header and advertises compatibility headers', async () => {
+    const server = new KnowledgeServer(makeApp() as never, '1.0.0');
+    const res = await call(server, makeReq('GET', '/api/status'));
+    const payload = JSON.parse(res.payload);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['X-Knowledge-Plugin']).toBe('1');
+    expect(res.headers['X-Schema-Version']).toBe(SCHEMA_VERSION);
+    expect(payload).toMatchObject({
+      schemaVersion: SCHEMA_VERSION,
+      pluginVersion: '1.0.0',
+      requiredCapabilities: expect.arrayContaining([
+        expect.objectContaining({ id: 'knowledge-core' })
+      ])
+    });
+  });
+
   it('rejects invalid benchmark JSON instead of returning an empty pass', async () => {
-    const server = new KnowledgeServer(makeApp() as never);
+    const server = new KnowledgeServer(makeApp() as never, '1.0.0');
     const res = await call(server, makeReq('POST', '/api/benchmark', {
       'content-type': 'application/json',
       'x-schema-version': SCHEMA_VERSION
@@ -107,7 +128,7 @@ describe('KnowledgeServer HTTP boundary', () => {
   });
 
   it('returns unwrapped Part B endpoint payloads', async () => {
-    const server = new KnowledgeServer(makeApp() as never);
+    const server = new KnowledgeServer(makeApp() as never, '1.0.0');
     const headers = { 'content-type': 'application/json', 'x-schema-version': SCHEMA_VERSION };
 
     const route = await call(server, makeReq('POST', '/api/route-trace', headers, JSON.stringify({ source: 'A', target: 'B' })));
@@ -121,7 +142,7 @@ describe('KnowledgeServer HTTP boundary', () => {
   });
 
   it('advertises Part B capabilities', () => {
-    const server = new KnowledgeServer(makeApp() as never);
+    const server = new KnowledgeServer(makeApp() as never, '1.0.0');
     const capabilities = server.buildCapabilities();
 
     expect(capabilities.flatMap(cap => cap.tools)).toEqual(expect.arrayContaining([
